@@ -368,8 +368,10 @@ public sealed class RpcClientBuilder
                                 nameof(NdrMarshalBuffer.WriteBasicString), known_type, RpcPointerType.Unique),
             NdrKnownTypes.HSTRING => new RpcTypeDescriptor(typeof(string), nameof(NdrUnmarshalBuffer.ReadHString),
                                 nameof(NdrMarshalBuffer.WriteHString), known_type, RpcPointerType.Unique),
-            // TODO: Implement remaining custom marshallers?
-            _ => null,
+            NdrKnownTypes.HWND or NdrKnownTypes.HMENU => new RpcTypeDescriptor(typeof(NdrWindowHandle), nameof(NdrUnmarshalBuffer.ReadStruct), marshal_helper,
+                        nameof(NdrMarshalBuffer.WriteStruct), known_type, null, null, new AdditionalArguments(true), new AdditionalArguments(true), RpcPointerType.Unique),
+        // TODO: Implement remaining custom marshallers?
+        _ => null,
         };
     }
 
@@ -483,8 +485,13 @@ public sealed class RpcClientBuilder
         var formatter = new IdlNdrFormatterContext(null, null, NdrFormatterFlags.RemoveComments);
         var type_name_arg = CodeGenUtils.GetPrimitive($"{type.Format} - {formatter.FormatType(type)}");
         AdditionalArguments additional_args = new(false, type_name_arg);
+        RpcPointerType p_type = RpcPointerType.None;
+        if (type is NdrUserMarshalTypeReference user_marshal && user_marshal.Flags.HasFlagSet(NdrUserMarshalFlags.USER_MARSHAL_UNIQUE))
+        {
+            p_type = RpcPointerType.Unique;
+        }
         return new RpcTypeDescriptor(typeof(NdrUnsupported), nameof(NdrUnmarshalBuffer.ReadUnsupported), marshal_helper,
-            nameof(NdrMarshalBuffer.WriteUnsupported), type, null, null, additional_args, additional_args);
+            nameof(NdrMarshalBuffer.WriteUnsupported), type, null, null, additional_args, additional_args, p_type);
     }
 
     // Should implement this for each type rather than this.
